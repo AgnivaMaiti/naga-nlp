@@ -224,8 +224,12 @@ def train_and_upload_tagger(conll_path: str, hub_model_id: str):
         num_train_epochs=3,
         weight_decay=0.01,
         load_best_model_at_end=True,
-        push_to_hub=True, # This is the key argument for uploading
+        push_to_hub=False,  # Disable automatic pushing to Hub
         report_to="none",
+        # Disable all Hub-related functionality
+        hub_model_id=None,
+        hub_strategy="end",
+        hub_token=None,
     )
     
     trainer = Trainer(
@@ -238,8 +242,12 @@ def train_and_upload_tagger(conll_path: str, hub_model_id: str):
         compute_metrics=compute_metrics,
     )
 
-    # --- 4. Start Training and Upload ---
-    print(f"--- Starting Training & Uploading to {hub_model_id} ---")
+    # --- 4. Start Training ---
+    print(f"--- Starting Training ---")
     trainer.train()
-    trainer.push_to_hub(commit_message="End of training")
-    print("--- Model successfully trained and uploaded! ---")
+    
+    # Save the model locally instead of pushing to Hub
+    output_dir = hub_model_id.split("/")[-1]
+    trainer.save_model(output_dir)
+    tokenizer.save_pretrained(output_dir)
+    print(f"--- Model successfully trained and saved to {output_dir}!")
