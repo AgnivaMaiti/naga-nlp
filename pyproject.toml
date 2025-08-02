@@ -1,0 +1,48 @@
+# file: pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "naganlp"
+version = "0.1.0"
+authors = [
+    { name = "Agniva Maiti", email = "agnivamaiti.official@gmail.com" },
+]
+description = "A Natural Language Processing toolkit for the Nagamese language."
+repository = "https://github.com/AgnivaMaiti/naga-nlp"
+documentation = "https://github.com/AgnivaMaiti/naga-nlp#readme"
+keywords = ["nlp", "nagamese", "natural-language-processing", "machine-translation", "pos-tagging"]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch",
+    "transformers",
+    "datasets",
+    "scikit-learn",
+    "pandas",
+    "nltk",
+    "sentencepiece"
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/naga-nlp"

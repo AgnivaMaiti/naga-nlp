@@ -1,0 +1,16 @@
+include README.md
+include LICENSE
+include requirements*.txt
+include pyproject.toml
+include pytest.ini
+
+# Include package data
+recursive-include naganlp *.py
+recursive-include naganlp *.json
+recursive-include naganlp *.txt
+recursive-include naganlp *.md
+
+# Exclude tests and development files
+global-exclude *.py[cod] __pycache__ *.so .* *.swp .DS_Store *.pyc *.pyo *.pyd
+prune tests/
+prune docs/_build/
