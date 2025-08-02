@@ -41,10 +41,7 @@ setup(
         "Topic :: Text Processing :: Linguistic",
     ],
     keywords="nlp nlp-library nlp-machine-learning nagamese-language",
-    project_urls={
-        "Bug Reports": "https://github.com/your-username/naga-nlp/issues",
-        "Source": "https://github.com/your-username/naga-nlp",
-    },
+
     # Enable setuptools_scm for versioning
     use_scm_version={
         "write_to": "naganlp/_version.py",
