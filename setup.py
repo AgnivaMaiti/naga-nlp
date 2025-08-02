@@ -15,8 +15,8 @@ setup(
     name="naganlp",
     version="0.1.0",  # This will be overridden by setuptools_scm if enabled
     author="Agniva Maiti",
-    author_email="agnivamaiti.official@gmail.com",
-    description="A Natural Language Processing toolkit for the Nagamese language",
+    author_email="maitiagniva@gmail.com",
+    description="A Natural Language Processing toolkit for the Nagamese creole",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/AgnivaMaiti/naga-nlp",

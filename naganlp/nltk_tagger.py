@@ -1,12 +1,13 @@
 # file: nltk_tagger.py
 
-import nltk
+import os
 import random
 import pickle
+from typing import List, Tuple
+import nltk
 from nltk.tag import DefaultTagger, UnigramTagger, BigramTagger, TrigramTagger
-import os
 
-def read_conll_for_nltk(path: str):
+def read_conll_for_nltk(path: str) -> List[List[Tuple[str, str]]]:
     """Reads a CoNLL file into a list of tagged sentences for NLTK."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"The CoNLL file was not found at: {path}")
@@ -29,7 +30,7 @@ def read_conll_for_nltk(path: str):
             tagged_sents.append(sent)
     return tagged_sents
 
-def train_and_save_nltk_tagger(conll_path: str, model_path: str):
+def train_and_save_nltk_tagger(conll_path: str, model_path: str) -> None:
     """Trains and saves an NLTK backoff tagger."""
     tagged_sentences = read_conll_for_nltk(conll_path)
     random.seed(42)
@@ -41,7 +42,7 @@ def train_and_save_nltk_tagger(conll_path: str, model_path: str):
     test_sents = tagged_sentences[split_idx:]
 
     # Build the backoff tagger chain
-    default_tagger = DefaultTagger('NOUN') # Default to NOUN if unknown
+    default_tagger = DefaultTagger('NOUN')  # Default to NOUN if unknown
     unigram_tagger = UnigramTagger(train_sents, backoff=default_tagger)
     bigram_tagger = BigramTagger(train_sents, backoff=unigram_tagger)
     trigram_tagger = TrigramTagger(train_sents, backoff=bigram_tagger)
@@ -65,7 +66,7 @@ class NltkPosTagger:
         with open(model_path, 'rb') as f:
             self.tagger = pickle.load(f)
 
-    def predict(self, tokens: list[str]):
+    def predict(self, tokens: List[str]) -> List[Tuple[str, str]]:
         """
         Tags a list of tokens.
 

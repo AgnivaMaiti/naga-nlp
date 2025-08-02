@@ -1,19 +1,21 @@
 # file: naganlp/transformer_tagger.py
 
+import os
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 from datasets import Dataset
+from sklearn.metrics import classification_report, accuracy_score
 from transformers import (
-    AutoTokenizer,
     AutoModelForTokenClassification,
+    AutoTokenizer,
     DataCollatorForTokenClassification,
-    TrainingArguments,
     Trainer,
+    TrainingArguments,
     pipeline
 )
-from sklearn.metrics import classification_report, accuracy_score
-import os
 
-def read_conll(path: str) -> Dataset:
+def read_conll(path: str, delimiter: str = '\t') -> Tuple[List[List[str]], List[List[str]]]:
     """Reads a CoNLL-formatted file and returns a Hugging Face Dataset."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"The CoNLL file was not found at: {path}")
@@ -28,7 +30,7 @@ def read_conll(path: str) -> Dataset:
                     tags.append(sent_tags)
                     sent, sent_tags = [], []
             else:
-                parts = line.split()
+                parts = line.split(delimiter)
                 if len(parts) >= 2:
                     sent.append(parts[0])
                     sent_tags.append(parts[-1])
@@ -74,9 +76,6 @@ class PosTagger:
     def _initialize_model(self):
         """Initialize the token classification pipeline."""
         try:
-            from transformers import pipeline
-            import torch
-            
             device = 0 if torch.cuda.is_available() else -1  # Use GPU if available
             
             self.tagger = pipeline(
@@ -201,17 +200,18 @@ def train_and_upload_tagger(conll_path: str, hub_model_id: str):
     )
 
     # --- 2. Metrics Calculation Logic (No longer a placeholder) ---
-    def compute_metrics(p):
+    def compute_metrics(p):  # noqa: C901
         """Computes F1 score, and accuracy for evaluation."""
-        predictions, labels = p
-        predictions = np.argmax(predictions, axis=2)
+        predictions = np.argmax(p.predictions, axis=2)
+        true_labels = p.label_ids  # noqa: F841
+        # Convert predictions and labels to lists of lists of strings
         true_predictions = [
             [id2label[p] for (p, l) in zip(prediction, label) if l != -100]
-            for prediction, label in zip(predictions, labels)
+            for prediction, label in zip(predictions, true_labels)
         ]
         true_labels = [
             [id2label[l] for (p, l) in zip(prediction, label) if l != -100]
-            for prediction, label in zip(predictions, labels)
+            for prediction, label in zip(predictions, true_labels)
         ]
         # Flatten the lists
         flat_true_predictions = [item for sublist in true_predictions for item in sublist]

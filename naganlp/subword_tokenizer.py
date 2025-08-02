@@ -1,18 +1,22 @@
 # file: subword_tokenizer.py
 
-import pandas as pd
-import sentencepiece as spm
 import os
 import re
+from typing import List, Optional
 
-def load_data_for_spm(filepath: str):
+import pandas as pd
+import sentencepiece as spm
+
+def load_data_for_spm(filepath: str) -> Optional[pd.DataFrame]:
     """Loads and cleans data specifically for SentencePiece training."""
     if not os.path.exists(filepath):
         print(f"Error: The file at {filepath} was not found.")
         return None
     df = pd.read_csv(filepath)
-    def clean_text(text):
-        if not isinstance(text, str): return ""
+    def clean_text(text: str) -> str:
+        """Clean text by removing HTML tags and extra whitespace."""
+        if not isinstance(text, str):
+            return ""
         text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\s+', ' ', text).strip()
         return text
@@ -21,7 +25,11 @@ def load_data_for_spm(filepath: str):
     df['nagamese_cleaned'] = df['nagamese'].apply(clean_text)
     return df
 
-def train_sentencepiece_model(df, model_prefix='naga_eng_bpe', vocab_size=8000):
+def train_sentencepiece_model(
+    df: pd.DataFrame,
+    model_prefix: str = 'naga_eng_bpe',
+    vocab_size: int = 8000
+) -> None:
     """
     Trains a joint SentencePiece BPE model on the Nagamese and English text.
 
@@ -58,11 +66,11 @@ class SubwordTokenizer:
         self.sp = spm.SentencePieceProcessor()
         self.sp.load(model_path)
 
-    def tokenize(self, text: str):
+    def tokenize(self, text: str) -> List[str]:
         """Tokenizes text into subword pieces."""
         return self.sp.encode_as_pieces(text)
 
-    def detokenize(self, pieces: list[str]):
+    def detokenize(self, pieces: List[str]) -> str:
         """Converts a list of pieces back into a string."""
         return self.sp.decode_pieces(pieces)
 

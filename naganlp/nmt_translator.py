@@ -1,19 +1,21 @@
 # file: nmt_translator.py
 
+import os
+import pickle
+import random
+import re
+from collections import Counter
+from typing import Dict, List, Optional, Tuple, Union
+
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn.utils.rnn import pad_sequence
-from collections import Counter
-import random
-import os
-import pickle
-import re
-import pandas as pd 
+from torch.utils.data import DataLoader, Dataset, random_split
 
 # --- Data Loading ---
-def load_and_prep_data(filepath: str):
+def load_and_prep_data(filepath: str) -> Optional[pd.DataFrame]:
     """
     Loads and preprocesses the parallel corpus from a CSV file.
     """
@@ -21,8 +23,10 @@ def load_and_prep_data(filepath: str):
         print(f"Error: The file at {filepath} was not found.")
         return None
     df = pd.read_csv(filepath)
-    def clean_text(text):
-        if not isinstance(text, str): return ""
+    def clean_text(text: str) -> str:
+        """Clean and normalize text by removing HTML tags and extra whitespace."""
+        if not isinstance(text, str):
+            return ""
         text = re.sub(r'<[^>]+>', '', text)
         text = re.sub(r'\s+', ' ', text)
         return text.strip().lower()
@@ -36,7 +40,9 @@ def load_and_prep_data(filepath: str):
 
 # --- Vocabulary and Dataset ---
 class Vocab:
-    def __init__(self, tokens, min_freq=2):
+    """Vocabulary class for mapping between tokens and indices."""
+    
+    def __init__(self, tokens: List[List[str]], min_freq: int = 2) -> None:
         self.pad_token, self.sos_token, self.eos_token, self.unk_token = '<pad>', '<sos>', '<eos>', '<unk>'
         self.pad_idx, self.sos_idx, self.eos_idx, self.unk_idx = 0, 1, 2, 3
 
@@ -51,7 +57,9 @@ class Vocab:
         return len(self.idx_to_token)
 
 class TranslationDataset(Dataset):
-    def __init__(self, df, src_vocab, tgt_vocab):
+    """PyTorch Dataset for translation data."""
+    
+    def __init__(self, df: pd.DataFrame, src_vocab: Vocab, tgt_vocab: Vocab) -> None:
         self.src_sents = df['nagamese_tokens'].tolist()
         self.tgt_sents = df['english_tokens'].tolist()
         self.src_vocab = src_vocab
@@ -67,7 +75,9 @@ class TranslationDataset(Dataset):
 
 # --- Model Components ---
 class Encoder(nn.Module):
-    def __init__(self, input_dim, emb_dim, hid_dim, dropout):
+    """Encoder module for the sequence-to-sequence model."""
+    
+    def __init__(self, input_dim: int, emb_dim: int, hid_dim: int, dropout: float) -> None:
         super().__init__()
         self.embedding = nn.Embedding(input_dim, emb_dim)
         self.rnn = nn.GRU(emb_dim, hid_dim, bidirectional=True)
@@ -86,7 +96,9 @@ class Encoder(nn.Module):
         return outputs, hidden
 
 class Attention(nn.Module):
-    def __init__(self, hid_dim):
+    """Attention mechanism for the decoder."""
+    
+    def __init__(self, hid_dim: int) -> None:
         super().__init__()
         self.attn = nn.Linear(hid_dim * 3, hid_dim) # hid_dim * 2 (encoder) + hid_dim (decoder)
         self.v = nn.Parameter(torch.rand(hid_dim))
@@ -111,7 +123,16 @@ class Attention(nn.Module):
         return torch.softmax(attention, dim=1)
 
 class Decoder(nn.Module):
-    def __init__(self, output_dim, emb_dim, hid_dim, dropout, attention):
+    """Decoder module with attention for the sequence-to-sequence model."""
+    
+    def __init__(
+        self,
+        output_dim: int,
+        emb_dim: int,
+        hid_dim: int,
+        dropout: float,
+        attention: Attention
+    ) -> None:
         super().__init__()
         self.output_dim = output_dim
         self.attention = attention
@@ -132,7 +153,9 @@ class Decoder(nn.Module):
         return prediction, hidden.squeeze(0)
 
 class Seq2Seq(nn.Module):
-    def __init__(self, encoder, decoder, device):
+    """Sequence-to-sequence model with attention."""
+    
+    def __init__(self, encoder: Encoder, decoder: Decoder, device: torch.device) -> None:
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
@@ -153,7 +176,12 @@ class Seq2Seq(nn.Module):
             input = trg[t] if teacher_force else top1
         return outputs
 
-def collate_fn(batch, src_vocab, tgt_vocab, device):
+def collate_fn(
+    batch: List[Tuple[List[str], List[str]]],
+    src_vocab: Vocab,
+    tgt_vocab: Vocab,
+    device: torch.device
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """Pads sequences, adds SOS/EOS, and moves tensors to the correct device."""
     src_batch, tgt_batch = [], []
     for src_sample, tgt_sample in batch:
@@ -164,7 +192,12 @@ def collate_fn(batch, src_vocab, tgt_vocab, device):
     tgt_padded = pad_sequence(tgt_batch, padding_value=tgt_vocab.pad_idx)
     return src_padded.to(device), tgt_padded.to(device)
 
-def train_model(model, loader, optimizer, criterion):
+def train_model(
+    model: nn.Module,
+    loader: DataLoader,
+    optimizer: optim.Optimizer,
+    criterion: nn.Module
+) -> float:
     """Main training loop for one epoch."""
     model.train()
     epoch_loss = 0
@@ -190,31 +223,30 @@ class Translator:
     with attention mechanism for translating from Nagamese to English.
     
     Example:
-        >>> translator = Translator(model_path='nmt_model.pt', 
-        ...                       vocabs_path='vocabs.pkl',
-        ...                       device='cuda' if torch.cuda.is_available() else 'cpu')
+        >>> translator = Translator(
+        ...     model_path='nmt_model.pt',
+        ...     vocabs_path='vocabs.pkl',
+        ...     device='cuda' if torch.cuda.is_available() else 'cpu'
+        ... )
         >>> translation = translator.translate("moi school jai")
         >>> print(translation)
         'I go to school'
     """
     
-    def __init__(self, model_path: str, vocabs_path: str, device: str = None):
-        """
-        Initialize the translator with a pre-trained model.
+    def __init__(self, model_path: str, vocabs_path: str, device: Optional[str] = None) -> None:
+        """Initialize the translator with a pre-trained model.
         
         Args:
-            model_path (str): Path to the trained model weights (.pt file).
-            vocabs_path (str): Path to the saved vocabulary files (.pkl file).
-            device (str, optional): Device to run the model on ('cuda' or 'cpu').
-                                 If None, automatically selects GPU if available.
+            model_path: Path to the trained model weights (.pt file).
+            vocabs_path: Path to the saved vocabulary files (.pkl file).
+            device: Device to run the model on ('cuda' or 'cpu').
+                   If None, automatically selects GPU if available.
         
         Raises:
             FileNotFoundError: If model or vocabulary files are not found.
             RuntimeError: If there's an error loading the model or vocabularies.
             ValueError: If the model architecture doesn't match the expected format.
         """
-        import torch
-        
         # Set device
         if device is None:
             self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -226,68 +258,88 @@ class Translator:
         self._load_vocabs(vocabs_path)
         self._initialize_model(model_path)
     
-    def _validate_paths(self, model_path: str, vocabs_path: str):
-        """Validate that the required files exist."""
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"NMT model not found: {model_path}")
-        if not os.path.exists(vocabs_path):
-            raise FileNotFoundError(f"Vocabulary file not found: {vocabs_path}")
+    def _validate_paths(self, model_path: str, vocabs_path: str) -> None:
+        """Validate that the required files exist.
+        
+        Args:
+            model_path: Path to the model file.
+            vocabs_path: Path to the vocabulary file.
+            
+        Raises:
+            FileNotFoundError: If either file is not found.
+        """
+        if not os.path.isfile(model_path):
+            raise FileNotFoundError(f"Model file not found at: {model_path}")
+        if not os.path.isfile(vocabs_path):
+            raise FileNotFoundError(f"Vocabulary file not found at: {vocabs_path}")
     
-    def _load_vocabs(self, vocabs_path: str):
-        """Load source and target language vocabularies."""
+    def _load_vocabs(self, vocabs_path: str) -> None:
+        """Load source and target language vocabularies.
+        
+        Args:
+            vocabs_path: Path to the pickled vocabulary file.
+            
+        Raises:
+            RuntimeError: If there's an error loading the vocabularies.
+        """
         try:
             with open(vocabs_path, 'rb') as f:
                 self.src_vocab, self.tgt_vocab = pickle.load(f)
-                
-            # Validate vocabularies
-            if not hasattr(self.src_vocab, 'token_to_idx') or not hasattr(self.tgt_vocab, 'idx_to_token'):
-                raise ValueError("Invalid vocabulary format. Expected Vocab objects with token_to_idx and idx_to_token attributes.")
-                
         except Exception as e:
-            raise RuntimeError(f"Failed to load vocabulary file {vocabs_path}: {str(e)}")
+            raise RuntimeError(f"Failed to load vocabulary files: {e}") from e
     
-    def _initialize_model(self, model_path: str):
-        """Initialize the model architecture and load weights."""
-        try:
-            import torch
-            
-            # Model hyperparameters (must match training configuration)
-            ENC_EMB_DIM = 256
-            DEC_EMB_DIM = 256
-            HID_DIM = 512
-            DROPOUT = 0.5
-            
-            # Initialize model components
-            enc = Encoder(len(self.src_vocab), ENC_EMB_DIM, HID_DIM, DROPOUT)
-            attn = Attention(HID_DIM)
-            dec = Decoder(len(self.tgt_vocab), DEC_EMB_DIM, HID_DIM, DROPOUT, attn)
-            
-            # Create and load model
-            self.model = Seq2Seq(enc, dec, self.device).to(self.device)
-            
-            # Load state dict with error handling for device mismatch
-            state_dict = torch.load(model_path, map_location=torch.device(self.device))
-            self.model.load_state_dict(state_dict)
-            self.model.eval()
-            
-        except RuntimeError as e:
-            if 'out of memory' in str(e).lower():
-                raise RuntimeError("CUDA out of memory. Try reducing batch size or using CPU.")
-            raise RuntimeError(f"Error loading model: {str(e)}")
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize model: {str(e)}")
-
-    def translate(self, sentence: str, max_len: int = 50) -> str:
-        """
-        Translate a Nagamese sentence to English.
+    def _initialize_model(self, model_path: str) -> None:
+        """Initialize the model architecture and load weights.
         
         Args:
-            sentence (str): The input sentence in Nagamese.
-            max_len (int, optional): Maximum length of the output sequence. 
-                                   Defaults to 50.
+            model_path: Path to the trained model weights.
+            
+        Raises:
+            RuntimeError: If there's an error initializing the model.
+        """
+        try:
+            # Model hyperparameters (should match training config)
+            enc_emb_dim = 256
+            dec_emb_dim = 256
+            hid_dim = 512
+            enc_dropout = 0.5
+            dec_dropout = 0.5
+            
+            # Initialize model components
+            enc = Encoder(
+                input_dim=len(self.src_vocab),
+                emb_dim=enc_emb_dim,
+                hid_dim=hid_dim,
+                dropout=enc_dropout
+            )
+            
+            attn = Attention(hid_dim)
+            
+            dec = Decoder(
+                output_dim=len(self.tgt_vocab),
+                emb_dim=dec_emb_dim,
+                hid_dim=hid_dim,
+                dropout=dec_dropout,
+                attention=attn
+            )
+            
+            self.model = Seq2Seq(enc, dec, self.device).to(self.device)
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            self.model.eval()
+            
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize model: {e}") from e
+    
+    def translate(self, sentence: str, max_len: int = 50) -> str:
+        """Translate a Nagamese sentence to English.
         
+        Args:
+            sentence: The input sentence in Nagamese.
+            max_len: Maximum length of the output sequence. 
+                   Defaults to 50.
+    
         Returns:
-            str: The translated English sentence.
+            The translated English sentence.
             
         Raises:
             ValueError: If the input is not a valid string or is empty.
@@ -299,161 +351,144 @@ class Translator:
             >>> print(translation)
             'I go to school'
         """
-        if not isinstance(sentence, str):
-            raise ValueError(f"Input must be a string, got {type(sentence).__name__}")
-            
-        if not sentence.strip():
-            return ""
+        if not isinstance(sentence, str) or not sentence.strip():
+            raise ValueError("Input must be a non-empty string")
             
         try:
-            import torch
-            
-            # Tokenize and convert to tensor
+            # Tokenize and numericalize
             tokens = sentence.lower().split()
-            if not tokens:
-                return ""
-                
-            # Convert tokens to indices
-            try:
-                src_indices = [self.src_vocab.token_to_idx.get(tok, self.src_vocab.unk_idx) 
-                             for tok in tokens]
-                # Add batch dimension and ensure correct shape [seq_len, batch_size]
-                src_tensor = torch.tensor(src_indices, device=self.device).unsqueeze(1)  # [seq_len, 1]
-                src_len = len(src_indices)
-            except Exception as e:
-                raise ValueError(f"Error processing input tokens: {str(e)}")
+            src_indexes = [
+                self.src_vocab.token_to_idx.get(token, self.src_vocab.unk_idx)
+                for token in tokens
+            ]
             
-            # Encode the source sentence
-            self.model.eval()
+            # Convert to tensor and add batch dimension
+            src_tensor = torch.LongTensor(src_indexes).unsqueeze(1).to(self.device)
+            
+            # Run through model
             with torch.no_grad():
-                # Ensure the model is on the correct device
-                self.model.to(self.device)
-                # Call the encoder and handle its return value
-                encoder_output = self.model.encoder(src_tensor)
+                encoder_outputs, hidden = self.model.encoder(src_tensor)
                 
-                # Handle the case when the encoder returns a tuple or a single value
-                if isinstance(encoder_output, tuple):
-                    if len(encoder_output) >= 2:
-                        encoder_outputs, hidden = encoder_output[0], encoder_output[1]
-                    else:
-                        raise RuntimeError(f"Unexpected number of outputs from encoder: {len(encoder_output)}")
-                else:
-                    # If the encoder returns a single value, use it as both outputs and hidden
-                    encoder_outputs = hidden = encoder_output
+            trg_indexes = [self.tgt_vocab.sos_idx]
+            
+            for _ in range(max_len):
+                trg_tensor = torch.LongTensor([trg_indexes[-1]]).to(self.device)
+                with torch.no_grad():
+                    output, hidden = self.model.decoder(
+                        trg_tensor, hidden, encoder_outputs
+                    )
                     
-                # Initialize target with <sos> token
-                trg_indices = [self.tgt_vocab.sos_idx]
+                pred_token = output.argmax(1).item()
+                trg_indexes.append(pred_token)
                 
-                # Generate translation token by token
-                for _ in range(max_len):
-                    # Get the last token in the sequence
-                    trg_tensor = torch.tensor([trg_indices[-1]], device=self.device).unsqueeze(0)  # [1, 1]
-                    
-                    # Call the decoder and handle its return value
-                    decoder_output = self.model.decoder(trg_tensor, hidden, encoder_outputs)
-                    
-                    # Handle the case when the decoder returns a tuple or a single value
-                    if isinstance(decoder_output, tuple):
-                        if len(decoder_output) >= 2:
-                            output, hidden = decoder_output[0], decoder_output[1]
-                        else:
-                            output = decoder_output[0]
-                    else:
-                        output = decoder_output
-                        
-                    # Get the most likely next token
-                    if output.dim() == 3:  # [batch_size, seq_len, vocab_size] -> take last output
-                        output = output[:, -1, :]  # Take the last output in the sequence
-                    
-                    # Ensure output is 2D [batch_size, vocab_size]
-                    if output.dim() == 1:
-                        output = output.unsqueeze(0)
-                        
-                    # Get the token with highest probability
-                    pred_token = output.argmax(dim=-1).squeeze().item()
-                    trg_indices.append(pred_token)
-                    
-                    # Stop if we predict the end-of-sentence token
-                    if pred_token == self.tgt_vocab.eos_idx:
-                        break
-                
-                # Convert indices back to tokens
-                try:
-                    trg_tokens = [self.tgt_vocab.idx_to_token[i] 
-                                for i in trg_indices[1:]]  # Remove <sos> and keep <eos> if present
-                    # Remove <eos> if present
-                    if trg_tokens and trg_tokens[-1] == self.tgt_vocab.eos_token:
-                        trg_tokens = trg_tokens[:-1]
-                    return ' '.join(trg_tokens)
-                    
-                except Exception as e:
-                    raise RuntimeError(f"Error generating output tokens: {str(e)}")
-                    
+                if pred_token == self.tgt_vocab.eos_idx:
+                    break
+            
+            # Convert indices to tokens
+            trg_tokens = [self.tgt_vocab.idx_to_token[i] for i in trg_indexes]
+            
+            # Remove <sos> and <eos> tokens and join
+            return ' '.join(trg_tokens[1:-1])
+            
         except Exception as e:
-            raise RuntimeError(f"Translation failed: {str(e)}")
+            raise RuntimeError(f"Translation failed: {e}") from e
     
     def __repr__(self) -> str:
-        """Return a string representation of the translator."""
-        return (f"Translator("
-                f"device='{self.device}', "
-                f"src_vocab_size={len(self.src_vocab)}, "
-                f"tgt_vocab_size={len(self.tgt_vocab)})")
+        """Return a string representation of the translator.
+        
+        Returns:
+            A string representing the translator instance.
+        """
+        return f"Translator(device='{self.device}')"
+
+def main() -> None:
+    """Main function to train and test the NMT model."""
+    # --- Configuration ---
+    n_epochs = 10
+    model_path = 'nmt-nagamese-english.pt'
+    vocabs_path = 'nmt-vocabs.pkl'
+    data_path = 'merged.csv'
+    
+    # --- Data Loading ---
+    print("Loading and preprocessing data...")
+    df = load_and_prep_data(data_path)
+    
+    if df is None:
+        print(f"Error: Could not load data from {data_path}")
+        return
+        
+    # --- Build Vocabularies ---
+    print("Building vocabularies...")
+    src_vocab = Vocab(df['nagamese_tokens'].tolist())
+    tgt_vocab = Vocab(df['english_tokens'].tolist())
+    
+    # Save vocabularies
+    try:
+        with open(vocabs_path, 'wb') as f:
+            pickle.dump((src_vocab, tgt_vocab), f)
+        print(f"Vocabularies saved to {vocabs_path}")
+    except IOError as e:
+        print(f"Error saving vocabularies: {e}")
+        return
+            
+    # --- Create Dataset and DataLoader ---
+    dataset = TranslationDataset(df, src_vocab, tgt_vocab)
+    train_size = int(0.9 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=32,
+        shuffle=True,
+        collate_fn=lambda x: collate_fn(x, src_vocab, tgt_vocab, device)
+    )
+    
+    # --- Model Setup ---
+    # Hyperparameters
+    enc_emb_dim = 256
+    dec_emb_dim = 256
+    hid_dim = 512
+    enc_dropout = 0.5
+    dec_dropout = 0.5
+    
+    # Initialize model
+    enc = Encoder(len(src_vocab), enc_emb_dim, hid_dim, enc_dropout)
+    attn = Attention(hid_dim)
+    dec = Decoder(len(tgt_vocab), dec_emb_dim, hid_dim, dec_dropout, attn)
+    
+    model = Seq2Seq(enc, dec, device).to(device)
+    
+    # Loss and optimizer
+    criterion = nn.CrossEntropyLoss(ignore_index=tgt_vocab.pad_idx)
+    optimizer = optim.Adam(model.parameters())
+    
+    # --- Training Loop ---
+    print("Starting training...")
+    for epoch in range(n_epochs):
+        train_loss = train_model(model, train_loader, optimizer, criterion)
+        print(f"Epoch: {epoch+1:02} | Train Loss: {train_loss:.3f}")
+    
+    # Save the model
+    try:
+        torch.save(model.state_dict(), model_path)
+        print(f"Model saved to {model_path}")
+    except IOError as e:
+        print(f"Error saving model: {e}")
+        return
+    
+    # --- Test Translation ---
+    try:
+        translator = Translator(model_path, vocabs_path)
+        test_sentence = "moi school jai"
+        translation = translator.translate(test_sentence)
+        print(f"\nTest Translation:")
+        print(f"Input (Nagamese): {test_sentence}")
+        print(f"Output (English): {translation}")
+    except Exception as e:
+        print(f"Error during translation: {e}")
 
 if __name__ == '__main__':
-    # --- Configuration ---
-    N_EPOCHS = 10
-    MODEL_PATH = 'nmt-nagamese-english.pt'
-    VOCABS_PATH = 'nmt-vocabs.pkl'
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {DEVICE}")
-
-    # --- 1. Load and Prepare Data ---
-    df = load_and_prep_data('merged.csv')
-    if df is not None:
-        src_vocab = Vocab(df['nagamese_tokens'].tolist())
-        tgt_vocab = Vocab(df['english_tokens'].tolist())
-
-        with open(VOCABS_PATH, 'wb') as f:
-            pickle.dump((src_vocab, tgt_vocab), f)
-        print(f"Source vocab size: {len(src_vocab)}")
-        print(f"Target vocab size: {len(tgt_vocab)}")
-
-        dataset = TranslationDataset(df, src_vocab, tgt_vocab)
-        train_size = int(0.9 * len(dataset))
-        test_size = len(dataset) - train_size
-        train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
-
-        # Correctly create the collate function with arguments
-        collate_with_args = lambda batch: collate_fn(batch, src_vocab, tgt_vocab, DEVICE)
-        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, collate_fn=collate_with_args)
-
-        # --- 2. Initialize Model ---
-        ENC_EMB_DIM = 256
-        DEC_EMB_DIM = 256
-        HID_DIM = 512
-        DROPOUT = 0.5
-
-        enc = Encoder(len(src_vocab), ENC_EMB_DIM, HID_DIM, DROPOUT)
-        attn = Attention(HID_DIM)
-        dec = Decoder(len(tgt_vocab), DEC_EMB_DIM, HID_DIM, DROPOUT, attn)
-        model = Seq2Seq(enc, dec, DEVICE).to(DEVICE)
-
-        optimizer = optim.Adam(model.parameters())
-        criterion = nn.CrossEntropyLoss(ignore_index=src_vocab.pad_idx)
-
-        # --- 3. Train the Model ---
-        print("\n--- Starting NMT Model Training ---")
-        for epoch in range(N_EPOCHS):
-            train_loss = train_model(model, train_loader, optimizer, criterion)
-            print(f'Epoch: {epoch+1:02} | Train Loss: {train_loss:.3f}')
-
-        torch.save(model.state_dict(), MODEL_PATH)
-        print(f"Model saved to {MODEL_PATH}")
-
-        # --- 4. Load and Test the Translator ---
-        print("\n--- Loading Trained Model for Inference ---")
-        translator = Translator(MODEL_PATH, VOCABS_PATH, DEVICE)
-        test_sentence = "moi ghor te jai ase"
-        translation = translator.translate(test_sentence)
-        print(f"Nagamese Input: '{test_sentence}'")
-        print(f"Predicted English Translation: '{translation}'")
+    main()

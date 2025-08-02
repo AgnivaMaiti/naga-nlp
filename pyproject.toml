@@ -11,8 +11,6 @@ authors = [
     { name = "Agniva Maiti", email = "agnivamaiti.official@gmail.com" },
 ]
 description = "A Natural Language Processing toolkit for the Nagamese language."
-repository = "https://github.com/AgnivaMaiti/naga-nlp"
-documentation = "https://github.com/AgnivaMaiti/naga-nlp#readme"
 keywords = ["nlp", "nagamese", "natural-language-processing", "machine-translation", "pos-tagging"]
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -45,4 +43,6 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-username/naga-nlp"
+Homepage = "https://github.com/AgnivaMaiti/naga-nlp"
+Repository = "https://github.com/AgnivaMaiti/naga-nlp"
+Documentation = "https://github.com/AgnivaMaiti/naga-nlp#readme"
