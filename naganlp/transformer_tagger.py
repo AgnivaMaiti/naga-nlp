@@ -1,9 +1,8 @@
-# file: naganlp/transformer_tagger.py
-
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
+import torch
 from datasets import Dataset
 from sklearn.metrics import classification_report, accuracy_score
 from transformers import (
@@ -15,7 +14,7 @@ from transformers import (
     pipeline
 )
 
-def read_conll(path: str, delimiter: str = '\t') -> Tuple[List[List[str]], List[List[str]]]:
+def read_conll(path: str, delimiter: str = '\t') -> Dataset:
     """Reads a CoNLL-formatted file and returns a Hugging Face Dataset."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"The CoNLL file was not found at: {path}")
@@ -79,22 +78,12 @@ class PosTagger:
             device = 0 if torch.cuda.is_available() else -1  # Use GPU if available
             
             self.tagger = pipeline(
-                task="token-classification",
+                "token-classification",
                 model=self.model_name_or_path,
-                aggregation_strategy="simple",
+                tokenizer=self.model_name_or_path,
                 device=device,
-                framework="pt"
+                aggregation_strategy="simple"
             )
-            
-            # Verify the model is properly loaded
-            if not hasattr(self.tagger, 'model') or not self.tagger.model:
-                raise RuntimeError("Failed to initialize the model properly.")
-                
-        except ImportError as e:
-            raise ImportError(
-                "Required dependencies not found. Please install them using: "
-                "pip install transformers torch"
-            ) from e
         except Exception as e:
             raise RuntimeError(
                 f"Failed to load model '{self.model_name_or_path}'. "
@@ -122,12 +111,12 @@ class PosTagger:
 
         Example:
             >>> tagger = PosTagger()
-            >>> result = tagger.tag("মই স্কুললৈ যাওঁ")
+            >>> result = tagger.tag("moi school jai")
             >>> print(result)
             [
-                {'word': 'মই', 'entity_group': 'PRON', 'score': 0.99, 'start': 0, 'end': 2},
-                {'word': 'স্কুললৈ', 'entity_group': 'NOUN', 'score': 0.98, 'start': 3, 'end': 9},
-                {'word': 'যাওঁ', 'entity_group': 'VERB', 'score': 0.97, 'start': 10, 'end': 13}
+                {'word': 'moi', 'entity_group': 'PRON', 'score': 0.99, 'start': 0, 'end': 2},
+                {'word': 'school', 'entity_group': 'NOUN', 'score': 0.98, 'start': 3, 'end': 9},
+                {'word': 'jai', 'entity_group': 'VERB', 'score': 0.97, 'start': 10, 'end': 13}
             ]
         """
         if not isinstance(text, str):
@@ -203,7 +192,7 @@ def train_and_upload_tagger(conll_path: str, hub_model_id: str):
     def compute_metrics(p):  # noqa: C901
         """Computes F1 score, and accuracy for evaluation."""
         predictions = np.argmax(p.predictions, axis=2)
-        true_labels = p.label_ids  # noqa: F841
+        true_labels = p.label_ids
         # Convert predictions and labels to lists of lists of strings
         true_predictions = [
             [id2label[p] for (p, l) in zip(prediction, label) if l != -100]

@@ -13,12 +13,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 from naganlp.transformer_tagger import PosTagger, read_conll
 
-# Add the parent directory to the path so we can import naganlp
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from naganlp.transformer_tagger import PosTagger, read_conll
-
 
 class TestReadConll(unittest.TestCase):
     """Test the read_conll function."""
@@ -72,19 +66,33 @@ class TestReadConll(unittest.TestCase):
 class TestPosTagger(unittest.TestCase):
     """Test the PosTagger class."""
     
-    @patch('transformers.pipeline')
-    def setUp(self, mock_pipeline):
+    def setUp(self):
         """Set up the test case with a mocked pipeline."""
-        # Configure the mock pipeline
-        self.mock_pipeline = mock_pipeline.return_value
+        # Create a mock pipeline that returns sample POS tags
+        self.mock_pipeline = MagicMock()
         self.mock_pipeline.return_value = [
             {'word': 'moi', 'entity_group': 'PRON', 'score': 0.99},
             {'word': 'school', 'entity_group': 'NOUN', 'score': 0.98},
             {'word': 'jai', 'entity_group': 'VERB', 'score': 0.97}
         ]
         
+        # Patch the pipeline in the PosTagger class
+        self.patcher = patch('naganlp.transformer_tagger.pipeline', 
+                           return_value=self.mock_pipeline)
+        self.mock_pipeline_class = self.patcher.start()
+        
+        # Patch torch.cuda.is_available to return False by default
+        self.cuda_patcher = patch('torch.cuda.is_available', return_value=False)
+        self.mock_cuda = self.cuda_patcher.start()
+        
         # Initialize the tagger with a mock model
         self.tagger = PosTagger(model_name_or_path='mock-model')
+        self.tagger.tagger = self.mock_pipeline  # Ensure we're using our mock
+    
+    def tearDown(self):
+        """Clean up patches."""
+        self.patcher.stop()
+        self.cuda_patcher.stop()
     
     def test_init_with_invalid_model_path(self):
         """Test initialization with invalid model path raises an error."""
@@ -93,7 +101,20 @@ class TestPosTagger(unittest.TestCase):
     
     def test_tag_valid_input(self):
         """Test tagging a valid input sentence."""
+        # Configure the mock to return our test data
+        self.mock_pipeline.return_value = [
+            {'word': 'moi', 'entity_group': 'PRON', 'score': 0.99},
+            {'word': 'school', 'entity_group': 'NOUN', 'score': 0.98},
+            {'word': 'jai', 'entity_group': 'VERB', 'score': 0.97}
+        ]
+        
+        # Call the method under test
         result = self.tagger.tag("moi school jai")
+        
+        # Verify the pipeline was called with the correct arguments
+        self.mock_pipeline.assert_called_once_with("moi school jai")
+        
+        # Verify the result
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 3)
         self.assertEqual(result[0]['word'], 'moi')
@@ -106,33 +127,38 @@ class TestPosTagger(unittest.TestCase):
     
     def test_tag_invalid_input(self):
         """Test tagging with invalid input raises an error."""
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as context:
             self.tagger.tag(123)  # Not a string
+        self.assertIn("must be a string", str(context.exception))
     
-    @patch('torch.cuda.is_available', return_value=True)
-    @patch('transformers.pipeline')
-    def test_gpu_usage(self, mock_pipeline, mock_cuda):
+    @patch('naganlp.transformer_tagger.pipeline')
+    @patch('naganlp.transformer_tagger.torch.cuda.is_available', return_value=True)
+    def test_gpu_usage(self, mock_cuda, mock_pipeline):
         """Test that GPU is used when available."""
-        # Create a mock pipeline with a device attribute
-        mock_pipe = MagicMock()
-        mock_pipe.device = 'cuda'  # Simplified mock for device
-        mock_pipeline.return_value = mock_pipe
+        # Configure the mock pipeline
+        mock_pipeline.return_value = MagicMock()
         
-        # Create the tagger
-        tagger = PosTagger()
+        # Clear any existing instance cache
+        if hasattr(PosTagger, '_instance'):
+            delattr(PosTagger, '_instance')
+            
+        # Create a new instance - this should use the mocked pipeline and cuda.is_available
+        tagger = PosTagger(model_name_or_path='mock-model')
         
-        # Check that the pipeline was created with the correct device
-        mock_pipeline.assert_called_once()
-        call_kwargs = mock_pipeline.call_args[1]
-        self.assertEqual(call_kwargs.get('device', 0), 0)  # Should use GPU (device=0)
-        
-        # Check that the tagger's pipeline is using the correct device
-        self.assertEqual(mock_pipe.device, 'cuda')
-    
+        # Verify the pipeline was called with the correct arguments
+        mock_pipeline.assert_called_once_with(
+            "token-classification",
+            model='mock-model',
+            tokenizer='mock-model',
+            device=0,  # Should use GPU (device=0) when available
+            aggregation_strategy="simple"
+        )
+
     def test_repr(self):
         """Test the string representation of the tagger."""
         repr_str = repr(self.tagger)
         self.assertIn('PosTagger', repr_str)
+        self.assertIn('model_name_or_path=\'mock-model\'', repr_str)
         self.assertIn('mock-model', repr_str)
 
 

@@ -339,10 +339,10 @@ class Translator:
                    Defaults to 50.
     
         Returns:
-            The translated English sentence.
+            The translated English sentence. Returns an empty string if input is empty after stripping.
             
         Raises:
-            ValueError: If the input is not a valid string or is empty.
+            ValueError: If the input is not a string.
             RuntimeError: If translation fails for any reason.
             
         Example:
@@ -350,9 +350,17 @@ class Translator:
             >>> translation = translator.translate("moi school te jai thake")
             >>> print(translation)
             'I go to school'
+            
+            >>> translator.translate("   ")
+            ''
         """
-        if not isinstance(sentence, str) or not sentence.strip():
-            raise ValueError("Input must be a non-empty string")
+        if not isinstance(sentence, str):
+            raise ValueError(f"Input must be a string, got {type(sentence).__name__}")
+            
+        # Handle empty input gracefully
+        sentence = sentence.strip()
+        if not sentence:
+            return ""
             
         try:
             # Tokenize and numericalize
@@ -372,13 +380,17 @@ class Translator:
             trg_indexes = [self.tgt_vocab.sos_idx]
             
             for _ in range(max_len):
-                trg_tensor = torch.LongTensor([trg_indexes[-1]]).to(self.device)
+                trg_tensor = torch.LongTensor([trg_indexes[-1]]).unsqueeze(0).to(self.device)  # [1, 1]
                 with torch.no_grad():
                     output, hidden = self.model.decoder(
                         trg_tensor, hidden, encoder_outputs
                     )
                     
-                pred_token = output.argmax(1).item()
+                # Get the most likely next token
+                output = output.squeeze(0)  # Remove sequence length dimension if present
+                if output.dim() > 1:
+                    output = output[-1]  # Take the last output if multiple
+                pred_token = output.argmax().item()
                 trg_indexes.append(pred_token)
                 
                 if pred_token == self.tgt_vocab.eos_idx:
@@ -397,9 +409,14 @@ class Translator:
         """Return a string representation of the translator.
         
         Returns:
-            A string representing the translator instance.
+            A string representing the translator instance with device and vocabulary sizes.
         """
-        return f"Translator(device='{self.device}')"
+        src_size = len(self.src_vocab) if hasattr(self, 'src_vocab') else 0
+        tgt_size = len(self.tgt_vocab) if hasattr(self, 'tgt_vocab') else 0
+        return (
+            f"Translator(device='{self.device}', "
+            f"src_vocab_size={src_size}, tgt_vocab_size={tgt_size})"
+        )
 
 def main() -> None:
     """Main function to train and test the NMT model."""

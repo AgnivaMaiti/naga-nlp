@@ -50,15 +50,13 @@ setup(
     setup_requires=["setuptools_scm"],
     extras_require={
         "dev": [
-            "black>=21.12b0",
-            "isort>=5.10.1",
-            "flake8>=4.0.1",
-            "pytest>=6.2.5",
-            "pytest-cov>=3.0.0",
-            "pre-commit>=2.16.0",
-            "mypy>=0.910",
-            "sphinx>=4.2.0",
-            "sphinx-rtd-theme>=1.0.0",
+            "pytest>=7.0.0",
+            "pytest-cov>=4.0.0",
+            "pytest-mock>=3.10.0",
+            "black>=23.0.0",
+            "flake8>=6.0.0",
+            "mypy>=1.0.0",
+            "isort>=5.12.0",
         ],
     },
     entry_points={
