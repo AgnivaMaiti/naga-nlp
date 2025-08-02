@@ -52,7 +52,7 @@ class PosTagger:
         [{'entity_group': 'PRON', 'word': 'মই', ...}]
     """
 
-    def __init__(self, model_name_or_path: str = "your-username/naganlp-pos-tagger"):
+    def __init__(self, model_name_or_path: str = "agnivamaiti/naganlp-pos-tagger"):
         """
         Initialize the POS Tagger with a pre-trained model.
 
