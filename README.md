@@ -69,13 +69,13 @@ print(translation)
 #### POS Tagger Training
 
 ```bash
-python main.py train-tagger --conll-file path/to/train.conll --hub-id your-username/naganlp-pos-tagger
+python main.py train-tagger --conll-file path/to/train.conll --hub-id agnivamaiti/naganlp-pos-tagger
 ```
 
 #### NMT Model Training
 
 ```bash
-python main.py train-translator --data-file path/to/parallel_corpus.csv --hub-id your-username/naganlp-nmt
+python main.py train-translator --data-file path/to/parallel_corpus.csv --hub-id agnivamaiti/naganlp-nmt
 ```
 
 ### Advanced Usage
@@ -118,11 +118,11 @@ If you use NagaNLP in your research, please cite:
 ```bibtex
 @software{naganlp2023,
   title={NagaNLP: Natural Language Processing Toolkit for Nagamese},
-  author={Your Name},
+  author={Agniva Maiti},
   year={2023},
   publisher={GitHub},
   journal={GitHub repository},
-  howpublished={\url{https://github.com/your-username/naga-nlp}}
+  howpublished={\url{https://github.com/AgnivaMaiti/naga-nlp}}
 }
 ```
 
