@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "naganlp"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     { name = "Agniva Maiti", email = "agnivamaiti.official@gmail.com" },
 ]
@@ -29,20 +29,43 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Text Processing",
-    "Topic :: Text Processing :: Linguistic",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic"
 ]
 dependencies = [
-    "torch",
-    "transformers",
-    "datasets",
-    "scikit-learn",
-    "pandas",
-    "nltk",
-    "sentencepiece"
+    "numpy<2.0.0",  # Pin to NumPy 1.x for compatibility
+    "nltk>=3.8.1",
+    "sentencepiece>=0.1.99",
+    "transformers>=4.30.0,<5.0.0",
+    "torch>=2.0.0,<2.9.0",
+    "datasets>=2.0.0,<3.0.0",
+    "scikit-learn>=1.0.0,<2.0.0",
+    "pandas>=1.3.0,<3.0.0",
+    "importlib-resources>=5.12.0;python_version<'3.9'"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "flake8>=6.0.0"
 ]
 
 [project.urls]
-Homepage = "https://github.com/AgnivaMaiti/naga-nlp"
-Repository = "https://github.com/AgnivaMaiti/naga-nlp"
-Documentation = "https://github.com/AgnivaMaiti/naga-nlp#readme"
+"Homepage" = "https://github.com/AgnivaMaiti/naga-nlp"
+"Bug Tracker" = "https://github.com/AgnivaMaiti/naga-nlp/issues"
+"Repository" = "https://github.com/AgnivaMaiti/naga-nlp"
+"Documentation" = "https://github.com/AgnivaMaiti/naga-nlp#readme"
+
+[tool.setuptools.package-data]
+naganlp = ["data/*.model", "data/*.pkl", "data/*.conll"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["naganlp", "naganlp.*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'

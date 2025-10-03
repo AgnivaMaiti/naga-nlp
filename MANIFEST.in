@@ -8,6 +8,12 @@ include pytest.ini
 recursive-include naganlp *.py
 recursive-include naganlp *.json
 recursive-include naganlp *.txt
+recursive-include naganlp *.model
+recursive-include naganlp *.pkl
+recursive-include naganlp *.conll
+
+# Include data files
+include naganlp/nagamese_manual_enriched.conll
 recursive-include naganlp *.md
 
 # Exclude tests and development files

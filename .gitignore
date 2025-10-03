@@ -47,6 +47,15 @@ coverage.xml
 # Jupyter Notebook
 .ipynb_checkpoints
 
+# Model files
+*.model
+*.pkl
+nagamese_nltk_tagger.pkl
+nagamese_english_spm.model
+joint_corpus.txt
+merged.csv
+phrases.csv
+
 # Environments
 .env
 .venv

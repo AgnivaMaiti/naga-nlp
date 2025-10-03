@@ -80,8 +80,11 @@ class NltkPosTagger:
 
 
 if __name__ == '__main__':
-    conll_file = 'nagamese_manual_enriched.conll'
-    nltk_model_file = 'nagamese_nltk_tagger.pkl'
+    from naganlp import DATA_DIR
+    
+    # Use package-relative paths
+    conll_file = DATA_DIR / 'nagamese_manual_enriched.conll'
+    nltk_model_file = DATA_DIR / 'nagamese_nltk_tagger.pkl'
 
     # --- Step 1: Train and save the NLTK tagger ---
     train_and_save_nltk_tagger(conll_file, nltk_model_file)
